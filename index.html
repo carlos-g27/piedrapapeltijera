@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Piedra, Papel o Tijera — Juego</title>
+  <style>
+    :root{
+      --bg:#0f172a; --card:#0b1220; --accent:#06b6d4; --muted:#94a3b8; --glass: rgba(255,255,255,0.04);
+      --win:#10b981; --lose:#ef4444;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;}
+    body{
+      margin:0; background:linear-gradient(180deg,#071029 0%, var(--bg) 100%); color:#e6eef6; display:flex; align-items:center; justify-content:center; padding:32px;
+    }
+    .container{width:100%; max-width:880px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:16px; padding:28px; box-shadow:0 8px 30px rgba(2,6,23,0.7);}
+    header{display:flex; gap:16px; align-items:center; margin-bottom:18px}
+    header h1{font-size:1.4rem; margin:0}
+    .scoreboard{margin-left:auto; text-align:right}
+    .scoreboard p{margin:0; font-size:0.95rem; color:var(--muted)}
+
+    .game{display:grid; grid-template-columns: 1fr 320px; gap:20px; align-items:start}
+    @media (max-width:780px){ .game{grid-template-columns:1fr;}}
+
+    .panel{background:var(--card); border-radius:12px; padding:18px}
+    .choices{display:flex; gap:12px; justify-content:center; padding:12px}
+    .choice-btn{flex:1; min-width:88px; background:var(--glass); border:1px solid rgba(255,255,255,0.04); color:inherit; padding:14px; border-radius:10px; font-size:1rem; cursor:pointer; transition:transform .12s ease, box-shadow .12s; display:flex; flex-direction:column; align-items:center; gap:8px}
+    .choice-btn:active{transform:translateY(1px)}
+    .choice-btn .emoji{font-size:28px}
+    .choice-btn[aria-pressed="true"]{box-shadow:0 6px 18px rgba(2,6,23,0.6); transform:scale(1.03)}
+
+    .result{display:flex; gap:12px; align-items:center; justify-content:space-between; padding-top:8px}
+    .result .text{flex:1}
+    .result .outcome{font-weight:700}
+
+    .right-col{position:relative}
+    .status-card{display:flex; flex-direction:column; gap:10px}
+    .pick-display{display:flex; gap:8px; align-items:center; justify-content:space-between}
+    .pick{background:var(--glass); border-radius:10px; padding:12px; min-width:120px; text-align:center}
+    .controls{display:flex; gap:8px; margin-top:12px}
+    .btn{background:transparent; color:var(--accent); border:1px solid rgba(6,182,212,0.12); padding:8px 12px; border-radius:8px; cursor:pointer}
+    .btn.secondary{color:var(--muted); border-color:rgba(148,163,184,0.06)}
+
+    .message{margin-top:10px; font-size:0.95rem; color:var(--muted)}
+
+    footer{margin-top:14px; display:flex; justify-content:space-between; align-items:center}
+    .credits{font-size:0.82rem; color:var(--muted)}
+
+    /* tiny animations */
+    .flash-win{animation:flashWin .9s ease}
+    @keyframes flashWin{0%{box-shadow:0 0 0 rgba(16,185,129,0)}50%{box-shadow:0 0 30px rgba(16,185,129,0.12)}100%{box-shadow:0 0 0 rgba(16,185,129,0)}}
+  </style>
+</head>
+<body>
+  <div class="container" id="app">
+    <header>
+      <div>
+        <h1>Piedra, Papel o Tijera</h1>
+        <div class="message">Elige tu jugada y compite contra la máquina.</div>
+      </div>
+      <div class="scoreboard" aria-live="polite">
+        <p>Puntos — Tú: <span id="score-player">0</span>  •  CPU: <span id="score-cpu">0</span></p>
+        <p class="message">Rachas: <span id="streak">—</span></p>
+      </div>
+    </header>
+
+    <main class="game">
+      <section class="panel">
+        <h2 style="margin-top:0">Selecciona</h2>
+        <div class="choices" role="radiogroup" aria-label="Opciones de juego">
+          <button class="choice-btn" id="btn-rock" data-choice="piedra" aria-pressed="false"> <div class="emoji">✊</div> <div>Piedra</div></button>
+          <button class="choice-btn" id="btn-paper" data-choice="papel" aria-pressed="false"> <div class="emoji">✋</div> <div>Papel</div></button>
+          <button class="choice-btn" id="btn-scissors" data-choice="tijera" aria-pressed="false"> <div class="emoji">✌️</div> <div>Tijera</div></button>
+        </div>
+
+        <div class="result" aria-live="polite">
+          <div class="text">CPU eligió: <strong id="cpu-choice">—</strong></div>
+          <div class="outcome" id="outcome">—</div>
+        </div>
+
+        <div style="margin-top:12px; display:flex; gap:8px; align-items:center">
+          <button class="btn" id="play-btn">Jugar</button>
+          <button class="btn secondary" id="reset-btn">Reiniciar marcador</button>
+        </div>
+      </section>
+
+      <aside class="right-col">
+        <div class="panel status-card">
+          <h3 style="margin:0">Estado</h3>
+          <div class="pick-display">
+            <div class="pick">Tú: <div id="player-pick">—</div></div>
+            <div class="pick">CPU: <div id="cpu-pick">—</div></div>
+          </div>
+
+          <div>
+            <p class="message">Consejo: usa el teclado 1 (piedra) 2 (papel) 3 (tijera) o haz clic en los botones.</p>
+          </div>
+        </div>
+
+        <footer>
+          <div class="credits">Hecho con 💙 — simple y accesible</div>
+          <div class="credits">Versión 1.0</div>
+        </footer>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    // --- LÓGICA DEL JUEGO ---
+    const choices = ['piedra','papel','tijera'];
+    const winMap = { piedra: 'tijera', papel: 'piedra', tijera: 'papel' };
+
+    // Elementos
+    const btns = document.querySelectorAll('.choice-btn');
+    const playBtn = document.getElementById('play-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const cpuChoiceEl = document.getElementById('cpu-choice');
+    const outcomeEl = document.getElementById('outcome');
+    const playerPickEl = document.getElementById('player-pick');
+    const cpuPickEl = document.getElementById('cpu-pick');
+    const scorePlayerEl = document.getElementById('score-player');
+    const scoreCpuEl = document.getElementById('score-cpu');
+    const streakEl = document.getElementById('streak');
+
+    let selected = null;
+    let score = { player:0, cpu:0 };
+    let streak = 0; // positivo para racha jugador, negativo para cpu
+
+    // Selección por clic
+    btns.forEach(b=>{
+      b.addEventListener('click', ()=>{
+        btns.forEach(x=>x.setAttribute('aria-pressed','false'));
+        b.setAttribute('aria-pressed','true');
+        selected = b.dataset.choice;
+        playerPickEl.textContent = capitalize(selected);
+        outcomeEl.textContent = 'Listo para jugar';
+      });
+    });
+
+    // Atajos de teclado
+    window.addEventListener('keydown', (e)=>{
+      if(e.key === '1') document.getElementById('btn-rock').click();
+      if(e.key === '2') document.getElementById('btn-paper').click();
+      if(e.key === '3') document.getElementById('btn-scissors').click();
+      if(e.key === ' '){ e.preventDefault(); playRound(); }
+    });
+
+    // Genera la elección de la CPU usando Math.random()
+    function cpuChoose(){
+      // Math.random() devuelve [0,1). Lo convertimos a índice entre 0 y 2.
+      const idx = Math.floor(Math.random() * choices.length);
+      return choices[idx];
+    }
+
+    // Jugar una ronda
+    function playRound(){
+      if(!selected){ outcomeEl.textContent = 'Selecciona una opción.'; return; }
+      const cpu = cpuChoose();
+      cpuChoiceEl.textContent = capitalize(cpu);
+      cpuPickEl.textContent = capitalize(cpu);
+
+      if(selected === cpu){
+        outcomeEl.textContent = 'Empate';
+        streak = 0;
+        flash(outcomeEl, '');
+      } else if(winMap[selected] === cpu){
+        // jugador gana
+        outcomeEl.textContent = '¡Ganaste!';
+        score.player += 1;
+        streak = streak >= 0 ? streak + 1 : 1;
+        flash(outcomeEl, 'win');
+      } else {
+        // CPU gana
+        outcomeEl.textContent = 'Perdiste';
+        score.cpu += 1;
+        streak = streak <= 0 ? streak - 1 : -1;
+        flash(outcomeEl, 'lose');
+      }
+
+      updateScoreboard();
+    }
+
+    playBtn.addEventListener('click', playRound);
+
+    resetBtn.addEventListener('click', ()=>{
+      score = { player:0, cpu:0 };
+      streak = 0;
+      selected = null;
+      btns.forEach(x=>x.setAttribute('aria-pressed','false'));
+      cpuChoiceEl.textContent = '—';
+      playerPickEl.textContent = '—';
+      cpuPickEl.textContent = '—';
+      outcomeEl.textContent = 'Marcador reiniciado';
+      updateScoreboard();
+    });
+
+    function updateScoreboard(){
+      scorePlayerEl.textContent = score.player;
+      scoreCpuEl.textContent = score.cpu;
+      streakEl.textContent = streak === 0 ? '—' : (streak > 0 ? `Tú x${streak}` : `CPU x${Math.abs(streak)}`);
+    }
+
+    function capitalize(s){ return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+    function flash(el, kind){
+      el.classList.remove('flash-win');
+      if(kind === 'win'){
+        el.classList.add('flash-win');
+      } else if(kind === 'lose'){
+        // pequeño efecto para perder
+        el.animate([{transform:'scale(1.02)'},{transform:'scale(1)'}],{duration:220});
+      }
+    }
+
+    // --- NOTAS:
+    // - Math.random() se usa para generar la elección aleatoria de la CPU.
+    // - Usamos botones nativos y aria-pressed para mejorar accesibilidad.
+  </script>
+</body>
+</html>
